@@ -1,0 +1,101 @@
+// Import required modules
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const session = require('express-session');
+const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
+
+// Initialize Express app
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// Middleware for parsing JSON and form data
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Session middleware
+app.use(session({
+  secret: 'super-secret-key',
+  resave: false,
+  saveUninitialized: true,
+}));
+
+// Mock database for players
+const players = {}; // { username: { passwordHash, stats } }
+
+// Route for player registration
+app.post('/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (players[username]) {
+    return res.status(400).json({ message: 'Username already exists' });
+  }
+  const passwordHash = await bcrypt.hash(password, 10);
+  players[username] = { passwordHash, stats: { wins: 0, losses: 0 } };
+  res.json({ message: 'Registration successful' });
+});
+
+// Route for player login
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+  const player = players[username];
+  if (!player || !(await bcrypt.compare(password, player.passwordHash))) {
+    return res.status(401).json({ message: 'Invalid credentials' });
+  }
+  req.session.username = username;
+  res.json({ message: 'Login successful' });
+});
+
+// Middleware for authentication
+const authMiddleware = (req, res, next) => {
+  if (!req.session.username) {
+    return res.status(401).json({ message: 'Not authenticated' });
+  }
+  next();
+};
+
+// Matchmaking system
+let waitingPlayer = null;
+
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  socket.on('join_game', () => {
+    if (waitingPlayer) {
+      const room = `room_${waitingPlayer}_${socket.id}`;
+      socket.join(room);
+      io.to(waitingPlayer).emit('game_start', { room });
+      socket.emit('game_start', { room });
+      waitingPlayer = null;
+    } else {
+      waitingPlayer = socket.id;
+    }
+  });
+
+  socket.on('game_update', (data) => {
+    socket.to(data.room).emit('game_update', data.update);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('A user disconnected:', socket.id);
+    if (socket.id === waitingPlayer) {
+      waitingPlayer = null;
+    }
+  });
+});
+
+// Route to get player stats
+app.get('/stats', authMiddleware, (req, res) => {
+  const username = req.session.username;
+  res.json(players[username].stats);
+});
+
+// Serve static files for the frontend
+app.use(express.static('public'));
+
+// Start the server
+const PORT = 3000;
+server.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background: #333;
+            color: white;
+            padding: 10px 0;
+        }
+        main {
+            padding: 20px;
+        }
+        form {
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-width: 300px;
+            background: white;
+        }
+        input[type="text"], input[type="password"], button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background: #333;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Multiplayer Game</h1>
+    </header>
+    <main>
+        <section id="auth">
+            <h2>Register</h2>
+            <form id="registerForm">
+                <input type="text" id="registerUsername" placeholder="Username" required>
+                <input type="password" id="registerPassword" placeholder="Password" required>
+                <button type="submit">Register</button>
+            </form>
+
+            <h2>Login</h2>
+            <form id="loginForm">
+                <input type="text" id="loginUsername" placeholder="Username" required>
+                <input type="password" id="loginPassword" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+        </section>
+
+        <section id="game" style="display: none;">
+            <h2>Matchmaking</h2>
+            <button id="joinMatchmaking">Join Matchmaking</button>
+
+            <h3>Game Room</h3>
+            <div id="gameUpdates"></div>
+        </section>
+    </main>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        // Register form submission
+        document.getElementById('registerForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('registerUsername').value;
+            const password = document.getElementById('registerPassword').value;
+
+            const response = await fetch('/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+
+            alert(await response.text());
+        });
+
+        // Login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+                document.getElementById('auth').style.display = 'none';
+                document.getElementById('game').style.display = 'block';
+            } else {
+                alert('Login failed');
+            }
+        });
+
+        // Matchmaking button
+        document.getElementById('joinMatchmaking').addEventListener('click', () => {
+            socket.emit('joinMatchmaking');
+        });
+
+        // Handle match found
+        socket.on('matchFound', (data) => {
+            document.getElementById('gameUpdates').innerText = `Match found! Room: ${data.room}`;
+        });
+
+        // Handle game updates
+        socket.on('updateGame', (data) => {
+            const updates = document.getElementById('gameUpdates');
+            updates.innerText += `\n${data.message}`;
+        });
+    </script>
+</body>
+</html>
