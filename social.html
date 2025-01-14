@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Platform</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            padding: 20px;
+        }
+        .post {
+            background: #fff;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        input, button, textarea {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 16px;
+            width: 100%;
+        }
+        button {
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Social Media Platform</h1>
+        <div id="auth">
+            <h2>Login</h2>
+            <input type="text" id="username" placeholder="Username">
+            <input type="password" id="password" placeholder="Password">
+            <button onclick="login()">Login</button>
+            <button onclick="register()">Register</button>
+        </div>
+        <div id="feed" style="display: none;">
+            <h2>Posts</h2>
+            <textarea id="new-post" placeholder="What's on your mind?"></textarea>
+            <button onclick="createPost()">Post</button>
+            <div id="posts">
+                <!-- Posts will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const apiBaseUrl = '/api'; // Adjust based on your backend API endpoint
+
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            fetch(`${apiBaseUrl}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById('auth').style.display = 'none';
+                    document.getElementById('feed').style.display = 'block';
+                    loadPosts();
+                } else {
+                    alert('Login failed');
+                }
+            });
+        }
+
+        function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            fetch(`${apiBaseUrl}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => {
+                if (response.ok) {
+                    alert('Registration successful');
+                } else {
+                    alert('Registration failed');
+                }
+            });
+        }
+
+        function createPost() {
+            const content = document.getElementById('new-post').value;
+            fetch(`${apiBaseUrl}/posts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            })
+            .then(response => response.json())
+            .then(post => {
+                addPostToFeed(post);
+                document.getElementById('new-post').value = '';
+            });
+        }
+
+        function loadPosts() {
+            fetch(`${apiBaseUrl}/posts`)
+                .then(response => response.json())
+                .then(posts => {
+                    const postsContainer = document.getElementById('posts');
+                    postsContainer.innerHTML = '';
+                    posts.forEach(post => addPostToFeed(post));
+                });
+        }
+
+        function addPostToFeed(post) {
+            const postsContainer = document.getElementById('posts');
+            const postDiv = document.createElement('div');
+            postDiv.className = 'post';
+            postDiv.innerHTML = `
+                <p>${post.content}</p>
+                <button onclick="likePost('${post.id}')">Like</button> <span>${post.likes || 0} likes</span>
+                <div>
+                    <textarea placeholder="Add a comment"></textarea>
+                    <button onclick="addComment('${post.id}', this.previousElementSibling.value)">Comment</button>
+                </div>
+                <div class="comments">
+                    ${(post.comments || []).map(comment => `<p>${comment}</p>`).join('')}
+                </div>
+            `;
+            postsContainer.appendChild(postDiv);
+        }
+
+        function likePost(postId) {
+            fetch(`${apiBaseUrl}/posts/${postId}/like`, { method: 'POST' })
+                .then(() => loadPosts());
+        }
+
+        function addComment(postId, comment) {
+            fetch(`${apiBaseUrl}/posts/${postId}/comment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comment })
+            }).then(() => loadPosts());
+        }
+    </script>
+</body>
+</html>
